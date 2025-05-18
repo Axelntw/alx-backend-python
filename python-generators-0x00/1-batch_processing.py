@@ -52,7 +52,12 @@ def batch_processing(batch_size):
     
     Args:
         batch_size: Number of rows to fetch in each batch
+        
+    Returns:
+        List of filtered users over the age of 25
     """
+    filtered_users = []
+    
     # Get batches from the generator
     for batch in stream_users_in_batches(batch_size):
         # Process each user in the batch
@@ -61,3 +66,6 @@ def batch_processing(batch_size):
             if user['age'] > 25:
                 print(user)
                 print()  # Empty line after each user
+                filtered_users.append(user)
+    
+    return filtered_users
