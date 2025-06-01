@@ -2,8 +2,8 @@
 """Unit tests for GithubOrgClient class"""
 
 import unittest
-from unittest.mock import patch, PropertyMock
-from parameterized import parameterized
+from unittest.mock import patch, PropertyMock, Mock
+from parameterized import parameterized, parameterized_class
 from client import GithubOrgClient
 from utils import get_json
 
@@ -70,6 +70,42 @@ class TestGithubOrgClient(unittest.TestCase):
             expected: expected return value
         """
         self.assertEqual(GithubOrgClient.has_license(repo, license_key), expected)
+
+
+@parameterized_class([
+    {
+        'org_payload': org_payload,
+        'repos_payload': repos_payload,
+        'expected_repos': expected_repos,
+        'apache2_repos': apache2_repos
+    }
+])
+class TestIntegrationGithubOrgClient(unittest.TestCase):
+    """Integration tests for GithubOrgClient"""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up class fixtures before running tests"""
+        cls.get_patcher = patch('requests.get')
+        cls.mock_get = cls.get_patcher.start()
+
+        def side_effect(url):
+            """Side effect function for mock get"""
+            mock_response = Mock()
+
+            if url == "https://api.github.com/orgs/google":
+                mock_response.json.return_value = cls.org_payload
+            elif url == "https://api.github.com/orgs/google/repos":
+                mock_response.json.return_value = cls.repos_payload
+
+            return mock_response
+
+        cls.mock_get.side_effect = side_effect
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove class fixtures after running tests"""
+        cls.get_patcher.stop()
 
 
 if __name__ == '__main__':
