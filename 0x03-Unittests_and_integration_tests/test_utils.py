@@ -16,7 +16,8 @@ class TestAccessNestedMap(unittest.TestCase):
         ({"a": {"b": 2}}, ("a", "b"), 2),
     ])
     def test_access_nested_map(self, nested_map, path, expected):
-        """Test access_nested_map returns correct values for different inputs"""
+        """Test that access_nested_map returns correct values
+        for different inputs"""
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
 
@@ -41,7 +42,8 @@ class TestMemoize(unittest.TestCase):
     """Tests for memoize decorator"""
 
     def test_memoize(self):
-        """Test that when calling a_property twice, a_method is called once"""
+        """Test that calling a_property twice results in
+        a_method being called once"""
         class TestClass:
             def a_method(self):
                 return 42
