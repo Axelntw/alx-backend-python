@@ -42,8 +42,8 @@ class TestMemoize(unittest.TestCase):
     """Tests for memoize decorator"""
 
     def test_memoize(self):
-        """Test that calling a_property twice results in
-        a_method being called once"""
+        """Test that calling a_property twice 
+        results in a_method being called once"""
         class TestClass:
             def a_method(self):
                 return 42
