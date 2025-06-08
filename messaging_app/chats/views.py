@@ -24,9 +24,16 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Only return conversations where the current user is a participant
-        return Conversation.objects.filter(
+        queryset = Conversation.objects.filter(
             participants=self.request.user
         ).distinct()
+        
+        # Filter by conversation_id if provided
+        conversation_id = self.request.query_params.get('conversation_id', None)
+        if conversation_id is not None:
+            queryset = queryset.filter(id=conversation_id)
+        
+        return queryset
 
     def perform_create(self, serializer):
         conversation = serializer.save()
@@ -37,7 +44,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
     def messages(self, request, pk=None):
         """Get all messages for a specific conversation"""
         conversation = self.get_object()
-        messages = Message.objects.filter(conversation=conversation).order_by('-timestamp')
+        messages = Message.objects.filter(
+            conversation=conversation,
+            conversation_id=conversation.id
+        ).order_by('-timestamp')
         
         # Apply pagination
         page = self.paginate_queryset(messages)
@@ -61,20 +71,41 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Only return messages from conversations where the user is a participant
-        return Message.objects.filter(
+        queryset = Message.objects.filter(
             conversation__participants=self.request.user
         ).distinct()
+        
+        # Filter by conversation_id if provided
+        conversation_id = self.request.query_params.get('conversation_id', None)
+        if conversation_id is not None:
+            queryset = queryset.filter(conversation_id=conversation_id)
+        
+        return queryset
 
     def perform_create(self, serializer):
-        # Set the sender to the current user
-        serializer.save(sender=self.request.user)
+        # Set the sender to the current user and ensure conversation_id is set
+        conversation = serializer.validated_data.get('conversation')
+        serializer.save(
+            sender=self.request.user,
+            conversation_id=conversation.id if conversation else None
+        )
 
     def update(self, request, *args, **kwargs):
-        # Only allow the sender to update their own messages
+        # Only allow the sender to update their own messages (PUT/PATCH)
         message = self.get_object()
         if message.sender != request.user:
             return Response(
-                {"error": "You can only update your own messages"},
+                {'error': 'You can only update your own messages'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        # Only allow the sender to delete their own messages (DELETE)
+        message = self.get_object()
+        if message.sender != request.user:
+            return Response(
+                {'error': 'You can only delete your own messages'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().destroy(request, *args, **kwargs)
