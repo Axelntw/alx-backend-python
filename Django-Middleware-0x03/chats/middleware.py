@@ -3,6 +3,56 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from collections import defaultdict
 import re
+import logging
+import os
+
+
+# Configure logging for requests
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Create logger for request logging
+request_logger = logging.getLogger('request_logger')
+
+# Create file handler for requests.log
+log_file_path = os.path.join(os.path.dirname(__file__), '..', 'requests.log')
+file_handler = logging.FileHandler(log_file_path)
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+request_logger.addHandler(file_handler)
+
+
+class RequestLoggingMiddleware:
+    """Middleware that logs all incoming requests to a file"""
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        # Log request details
+        log_message = f"Method: {request.method}, Path: {request.path}, IP: {self.get_client_ip(request)}, User: {request.user if hasattr(request, 'user') and request.user.is_authenticated else 'Anonymous'}"
+        request_logger.info(log_message)
+        
+        # Process the request
+        response = self.get_response(request)
+        
+        # Log response status
+        response_log = f"Response Status: {response.status_code} for {request.method} {request.path}"
+        request_logger.info(response_log)
+        
+        return response
+    
+    def get_client_ip(self, request):
+        """Get the client's IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR', 'Unknown')
+        return ip
 
 
 class RestrictAccessByTimeMiddleware:
@@ -119,7 +169,7 @@ class OffensiveLanguageMiddleware:
         return False
 
 
-class RolePermissionMiddleware:
+class RolepermissionMiddleware:
     """Middleware that enforces role-based permissions for chat access"""
     
     def __init__(self, get_response):
