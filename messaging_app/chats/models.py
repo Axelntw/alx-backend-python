@@ -1,54 +1,56 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.utils.translation import gettext_lazy as _
-import uuid
-
+from rest_framework import serializers
 
 class User(AbstractUser):
-    """Custom user model extending Django's AbstractUser"""
     user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(_('email address'), unique=True)
+    email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
-    phone_number = models.CharField(max_length=15, blank=True)
-    bio = models.TextField(max_length=500, blank=True)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
 
-    class Meta:
-        db_table = 'users'
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
+    def __str__(self):
+        return self.email
 
 class Conversation(models.Model):
-    """Model for chat conversations between users"""
     conversation_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=128, null=True, blank=True)
     participants = models.ManyToManyField(User, related_name='conversations')
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        db_table = 'conversations'
-        ordering = ['-updated_at']
-
+    def __str__(self):
+        return f"Conversation {self.conversation_id}"
 
 class Message(models.Model):
-    """Model for messages within conversations"""
     message_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    conversation = models.ForeignKey(
-        Conversation,
-        on_delete=models.CASCADE,
-        related_name='messages'
-    )
-    sender = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='sent_messages'
-    )
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     message_body = models.TextField()
     sent_at = models.DateTimeField(auto_now_add=True)
-    is_read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Message {self.message_id} from {self.sender.email}"
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['user_id', 'email', 'first_name', 'last_name', 'phone_number']
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
 
     class Meta:
-        db_table = 'messages'
-        ordering = ['sent_at']
+        model = Message
+        fields = ['message_id', 'sender', 'message_body', 'sent_at']
+
+class ConversationSerializer(serializers.ModelSerializer):
+    participants = UserSerializer(many=True, read_only=True)
+    messages = MessageSerializer(many=True, read_only=True, source='messages')
+
+    class Meta:
+        model = Conversation
+        fields = ['conversation_id', 'participants', 'created_at', 'messages']
